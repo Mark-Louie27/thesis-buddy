@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  /* Color tokens */
+  --color-ink: #14213d;
+  --color-ink-light: #2a3b5e;
+  --color-paper: #eef1f5;
+  --color-paper-dim: #e2e6ed;
+  --color-cardstock: #ffffff;
+  --color-amber: #ffc857;
+  --color-amber-dark: #b8860b;
+  --color-sage: #4f7965;
+  --color-sage-light: #e8efec;
+  --color-correction: #9b2c2c;
+  --color-correction-light: #f7e9e9;
+
+  /* Typography */
+  --font-display: "Fraunces", "Georgia", serif;
+  --font-sans: "Inter", -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", "Courier New", monospace;
+
+  /* Radius */
+  --radius-card: 10px;
+  --radius-pill: 999px;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* Signature element: highlighter stroke under active nav items */
+.highlight-active {
+  position: relative;
+}
+.highlight-active::after {
+  content: "";
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  bottom: 2px;
+  height: 10px;
+  background: var(--color-amber);
+  opacity: 0.55;
+  z-index: -1;
+  transform: rotate(-0.4deg);
+  border-radius: 2px;
+}
+
+/* Signature element: red-pen margin annotation marker */
+.margin-note {
+  position: relative;
+  border-left: 2px solid var(--color-correction);
+  border-radius: 0;
+  padding-left: 12px;
+}
+.margin-note::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+::selection {
+  background: var(--color-amber);
+  color: var(--color-ink);
+}
