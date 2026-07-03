@@ -1,82 +1,122 @@
-import { ChapterCard } from "@/components/dashboard/chapter-card";
-import { MarginNote } from "@/components/dashboard/margin-note";
+"use client";
+
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
 
-const CHAPTERS = [
-  { number: 1, title: "Introduction", status: "approved" as const, wordCount: 2140 },
-  { number: 2, title: "Review of Related Literature", status: "revisions" as const, wordCount: 5320 },
-  { number: 3, title: "Methodology", status: "review" as const, wordCount: 3010 },
-  { number: 4, title: "Results and Discussion", status: "draft" as const, wordCount: 640 },
-  { number: 5, title: "Summary, Conclusions, Recommendations", status: "draft" as const, wordCount: 0 },
-];
+export default function SettingsPage() {
+  const [thesisId, setThesisId] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [university, setUniversity] = useState("PRMSU");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
-const FEEDBACK = [
-  {
-    chapter: "Chapter 2",
-    note: "Synthesize the last three sources instead of summarizing each separately.",
-    date: "Jun 28",
-  },
-  {
-    chapter: "Chapter 3",
-    note: "Add a citation for the sampling method you're using.",
-    date: "Jun 24",
-  },
-];
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
-export default function DashboardOverview() {
-  const totalWords = CHAPTERS.reduce((sum, c) => sum + c.wordCount, 0);
-  const approved = CHAPTERS.filter((c) => c.status === "approved").length;
+      const { data: thesis } = await supabase
+        .from("theses")
+        .select("id, title, university_template")
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (thesis) {
+        setThesisId(thesis.id);
+        setTitle(thesis.title);
+        setUniversity(thesis.university_template);
+      }
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!thesisId) return;
+    setSaving(true);
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("theses")
+      .update({ title, university_template: university })
+      .eq("id", thesisId);
+
+    setSaving(false);
+
+    if (!error) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+  }
+
+  if (loading) {
+    return <p className="text-sm text-ink/40">Loading settings…</p>;
+  }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 max-w-lg">
       <div>
-        <h1 className="font-display text-2xl text-ink">Overview</h1>
+        <h1 className="font-display text-2xl text-ink">Settings</h1>
         <p className="text-sm text-ink/50 mt-1">
-          {approved} of {CHAPTERS.length} chapters approved &middot;{" "}
-          {totalWords.toLocaleString()} words so far
+          Thesis details used across formatting and exports
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="p-4">
-          <p className="text-xs text-ink/50 mb-1">Chapters approved</p>
-          <p className="font-display text-2xl text-ink">
-            {approved}/{CHAPTERS.length}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-ink/50 mb-1">Open adviser notes</p>
-          <p className="font-display text-2xl text-correction">
-            {FEEDBACK.length}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-ink/50 mb-1">Next deadline</p>
-          <p className="font-display text-2xl text-ink">Jul 14</p>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-[1fr_320px] gap-6">
-        <div>
-          <h2 className="text-sm font-medium text-ink/60 mb-3">Chapters</h2>
-          <div className="space-y-2">
-            {CHAPTERS.map((c) => (
-              <ChapterCard key={c.number} chapter={c} />
-            ))}
+      <Card className="p-6">
+        <form onSubmit={handleSave} className="space-y-4">
+          <div>
+            <label className="text-xs text-ink/60 mb-1.5 block" htmlFor="title">
+              Thesis title
+            </label>
+            <input
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-2 rounded-[8px] border border-ink/15 bg-cardstock text-sm focus:outline-none focus:border-ink/40"
+            />
           </div>
-        </div>
 
-        <div>
-          <h2 className="text-sm font-medium text-ink/60 mb-3">
-            Adviser feedback
-          </h2>
-          <Card className="p-4 space-y-4">
-            {FEEDBACK.map((note, i) => (
-              <MarginNote key={i} note={note} />
-            ))}
-          </Card>
-        </div>
-      </div>
+          <div>
+            <label
+              className="text-xs text-ink/60 mb-1.5 block"
+              htmlFor="university"
+            >
+              University template
+            </label>
+            <select
+              id="university"
+              value={university}
+              onChange={(e) => setUniversity(e.target.value)}
+              className="w-full px-3 py-2 rounded-[8px] border border-ink/15 bg-cardstock text-sm focus:outline-none focus:border-ink/40"
+            >
+              <option value="PRMSU">PRMSU</option>
+              <option value="custom">Custom (upload template)</option>
+            </select>
+            <p className="text-xs text-ink/40 mt-1.5">
+              Controls Table of Contents, List of Tables, and List of Figures
+              formatting on export.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 pt-1">
+            <Button type="submit" variant="primary" disabled={saving}>
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
+            {saved && <span className="text-xs text-sage">Saved</span>}
+          </div>
+        </form>
+      </Card>
     </div>
   );
 }
