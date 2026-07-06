@@ -1,122 +1,123 @@
-import { createClient } from "@/lib/supabase/server";
-import { getCurrentThesis } from "@/lib/data/theses";
-import { ChapterCard } from "@/components/dashboard/chapter-card";
-import { MarginNote } from "@/components/dashboard/margin-note";
-import { Card } from "@/components/ui/card";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/ui/logo";
+import { BookMarked, FileText, CalendarClock, Highlighter } from "lucide-react";
 
-export default async function DashboardOverview() {
-  const thesis = await getCurrentThesis();
-  const supabase = await createClient();
+const FEATURES = [
+  {
+    icon: BookMarked,
+    title: "APA 7th, done for you",
+    body: "Drop in a DOI, URL, or PDF. Get a properly formatted in-text citation and reference list entry — no manual comma-counting.",
+  },
+  {
+    icon: Highlighter,
+    title: "RRL synthesis, not summary",
+    body: "Upload your sources and get a first-draft synthesis grouped by theme, with citations attached. You edit; it saves the blank-page hours.",
+  },
+  {
+    icon: CalendarClock,
+    title: "Every deadline in one place",
+    body: "Chapter milestones, adviser meetings, defense dates. Track what's approved, what needs revision, and what's due next.",
+  },
+  {
+    icon: FileText,
+    title: "Formatting that survives review",
+    body: "Table of Contents, List of Tables, List of Figures — fixed to your university's template before your adviser ever sees it.",
+  },
+];
 
-  const { data: chapters } = await supabase
-    .from("chapters")
-    .select("*")
-    .eq("thesis_id", thesis!.id)
-    .order("number");
+function authErrorMessage(errorCode?: string) {
+  switch (errorCode) {
+    case "otp_expired":
+      return "That confirmation link expired. Sign up again to get a fresh one.";
+    case "access_denied":
+      return "That link is no longer valid. Sign up again to get a fresh one.";
+    default:
+      return null;
+  }
+}
 
-  const { data: feedback } = await supabase
-    .from("adviser_feedback")
-    .select("*, chapters(number, title)")
-    .in(
-      "chapter_id",
-      (chapters ?? []).map((c) => c.id),
-    )
-    .eq("resolved", false)
-    .order("created_at", { ascending: false })
-    .limit(5);
-
-  const { data: nextMilestone } = await supabase
-    .from("milestones")
-    .select("*")
-    .eq("thesis_id", thesis!.id)
-    .neq("status", "done")
-    .order("due_date", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  const list = chapters ?? [];
-  const totalWords = list.reduce((sum, c) => sum + c.word_count, 0);
-  const approved = list.filter((c) => c.status === "approved").length;
+export default async function LandingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error_code?: string }>;
+}) {
+  const { error_code } = await searchParams;
+  const errorMessage = authErrorMessage(error_code);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="font-display text-2xl text-ink">Overview</h1>
-        <p className="text-sm text-ink/50 mt-1">
-          {approved} of {list.length} chapters approved &middot;{" "}
-          {totalWords.toLocaleString()} words so far
+    <main className="bg-paper text-ink min-h-screen">
+      <header className="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
+        <Logo size={26} wordmarkClassName="text-lg" />
+        <nav className="flex items-center gap-3">
+          <Link href="/login" className="text-sm text-ink/60 hover:text-ink">
+            Log in
+          </Link>
+          <Link href="/signup">
+            <Button variant="primary">Start free</Button>
+          </Link>
+        </nav>
+      </header>
+
+      {errorMessage && (
+        <div className="max-w-3xl mx-auto px-6 mt-2">
+          <p className="text-sm text-correction bg-correction-light px-4 py-2.5 rounded-[8px] text-center">
+            {errorMessage}
+          </p>
+        </div>
+      )}
+
+      <section className="max-w-3xl mx-auto px-6 pt-16 pb-20 text-center">
+        <p className="font-mono text-xs text-correction mb-4 tracking-wide">
+          Chapter 2, page 14 — &ldquo;synthesize, don&rsquo;t summarize&rdquo;
         </p>
-      </div>
+        <h1 className="font-display text-5xl leading-tight text-ink mb-6">
+          Your capstone,
+          <br />
+          <span className="highlight-active">actually organized.</span>
+        </h1>
+        <p className="text-ink/60 text-lg max-w-xl mx-auto mb-8">
+          Reference management, RRL synthesis, and deadline tracking built
+          around how Filipino thesis and capstone defenses actually work.
+        </p>
+        <div className="flex items-center justify-center gap-3">
+          <Link href="/signup">
+            <Button variant="primary" className="px-6 py-3 text-base">
+              Start your thesis workspace
+            </Button>
+          </Link>
+          <Link href="#features">
+            <Button variant="secondary" className="px-6 py-3 text-base">
+              See how it works
+            </Button>
+          </Link>
+        </div>
+      </section>
 
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="p-4">
-          <p className="text-xs text-ink/50 mb-1">Chapters approved</p>
-          <p className="font-display text-2xl text-ink">
-            {approved}/{list.length}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-ink/50 mb-1">Open adviser notes</p>
-          <p className="font-display text-2xl text-correction">
-            {feedback?.length ?? 0}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-xs text-ink/50 mb-1">Next deadline</p>
-          <p className="font-display text-2xl text-ink">
-            {nextMilestone?.due_date
-              ? new Date(nextMilestone.due_date).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })
-              : "—"}
-          </p>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-[1fr_320px] gap-6">
-        <div>
-          <h2 className="text-sm font-medium text-ink/60 mb-3">Chapters</h2>
-          <div className="space-y-2">
-            {list.map((c) => (
-              <ChapterCard
-                key={c.id}
-                chapter={{
-                  number: c.number,
-                  title: c.title,
-                  status: c.status,
-                  wordCount: c.word_count,
-                }}
+      <section id="features" className="max-w-5xl mx-auto px-6 pb-24">
+        <div className="grid grid-cols-2 gap-5">
+          {FEATURES.map(({ icon: Icon, title, body }) => (
+            <div
+              key={title}
+              className="bg-cardstock border border-ink/8 rounded-[10px] p-6"
+            >
+              <Icon
+                size={20}
+                strokeWidth={1.75}
+                className="text-correction mb-4"
               />
-            ))}
-          </div>
+              <h3 className="font-display text-lg mb-2">{title}</h3>
+              <p className="text-sm text-ink/60 leading-relaxed">{body}</p>
+            </div>
+          ))}
         </div>
+      </section>
 
-        <div>
-          <h2 className="text-sm font-medium text-ink/60 mb-3">
-            Adviser feedback
-          </h2>
-          <Card className="p-4 space-y-4">
-            {feedback && feedback.length > 0 ? (
-              feedback.map((f) => (
-                <MarginNote
-                  key={f.id}
-                  note={{
-                    chapter: `Chapter ${f.chapters?.number ?? "?"}`,
-                    note: f.note,
-                    date: new Date(f.created_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    }),
-                  }}
-                />
-              ))
-            ) : (
-              <p className="text-sm text-ink/40">No open feedback yet.</p>
-            )}
-          </Card>
+      <footer className="border-t border-ink/8">
+        <div className="max-w-5xl mx-auto px-6 py-6 text-xs text-ink/40 font-mono">
+          Thesis Buddy — built for PH capstone and thesis students
         </div>
-      </div>
-    </div>
+      </footer>
+    </main>
   );
 }

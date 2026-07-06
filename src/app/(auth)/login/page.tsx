@@ -13,10 +13,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setUnconfirmed(false);
+    setResent(false);
     setLoading(true);
 
     const supabase = createClient();
@@ -28,12 +33,36 @@ export default function LoginPage() {
     setLoading(false);
 
     if (error) {
-      setError(error.message);
+      // Supabase returns this specific message when Confirm Email is
+      // enabled and the account hasn't verified yet — sign-in silently
+      // fails, which otherwise looks like the app "looping" on login.
+      if (error.message.toLowerCase().includes("email not confirmed")) {
+        setUnconfirmed(true);
+      } else {
+        setError(error.message);
+      }
       return;
     }
 
     router.push("/dashboard");
     router.refresh();
+  }
+
+  async function handleResend() {
+    if (!email || resending) return;
+    setResending(true);
+    setResent(false);
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+    });
+
+    setResending(false);
+
+    if (!error) setResent(true);
+    else setError(error.message);
   }
 
   return (
@@ -81,6 +110,27 @@ export default function LoginPage() {
           <p className="text-xs text-correction bg-correction-light px-3 py-2 rounded-[8px]">
             {error}
           </p>
+        )}
+
+        {unconfirmed && (
+          <div className="text-xs bg-correction-light px-3 py-2.5 rounded-[8px] space-y-2">
+            <p className="text-correction">
+              This email hasn&rsquo;t been confirmed yet. Check your inbox, or
+              resend the link.
+            </p>
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resending}
+              className="text-ink underline font-medium disabled:opacity-50"
+            >
+              {resending
+                ? "Sending…"
+                : resent
+                  ? "Sent — check your inbox"
+                  : "Resend confirmation email"}
+            </button>
+          </div>
         )}
 
         <Button

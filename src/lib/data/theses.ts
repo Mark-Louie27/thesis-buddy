@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -50,12 +51,7 @@ async function seedDefaultMilestones(
   await supabase.from("milestones").insert(rows);
 }
 
-/**
- * Returns the signed-in user's thesis, creating one (with default
- * chapters) on first visit if they don't have one yet.
- * Assumes one thesis per user for this MVP.
- */
-export async function getCurrentThesis(): Promise<ThesisRow | null> {
+export const getCurrentThesis = cache(async (): Promise<ThesisRow | null> => {
   const supabase = await createClient();
 
   const {
@@ -89,4 +85,4 @@ export async function getCurrentThesis(): Promise<ThesisRow | null> {
   await seedDefaultMilestones(supabase, created.id);
 
   return created as ThesisRow;
-}
+});
